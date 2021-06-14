@@ -109,7 +109,7 @@ def train(model,
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(pytorch_total_params)
+ 
     if args.clustering:
         criterion = nn.MSELoss()
     else:
@@ -119,6 +119,7 @@ def train(model,
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_sampler))
     logger.info("  Num Epochs = %d", args.epochs)
+    logger.info("  Trainable parameters = %d", pytorch_total_params)
     logger.info("  Total train batch size (w. parallel, distributed & accumulation) = %d",
                     args.batchsize * args.gradient_accumulation_steps)
 
@@ -150,13 +151,22 @@ def train(model,
             output, hidden_, mean, std, recon = model(visit, label)
             loss = 0
             for i, l in enumerate(batch['length']):
-                mean_, std_ = mean[i, 0:l, :], std[i, 0:l, :]
-                k_loss, kl_weight = kl_loss(mean_, std_, global_step)
-                loss += k_loss * kl_weight
+                if args.clustering:
+                    pred, gt = output[i, 0:l, :], visit[i, 0:l, :]
+                    loss += criterion(pred, gt)
+                else:
+                    pred, gt = output[i, 0:l, :], label[i, 0:l, :]
+                    gt = torch.tensor(np.where(gt.cpu()==1)[1])
+                    gt = gt.to(device=device)
+                    loss += criterion(pred, gt)
+          
+                for i, l in enumerate(batch['length']):
+                    mean_, std_ = mean[i, 0:l, :], std[i, 0:l, :]
+                    k_loss, kl_weight = kl_loss(mean_, std_, global_step)
+                    loss += k_loss * kl_weight
 
-                pred, gt = recon[i, 0:l, :], visit[i, 0:l, :]
-                loss += args.alpha * criterion2(pred, gt)
-
+                    pred, gt = recon[i, 0:l, :], visit[i, 0:l, :]
+                    loss += args.alpha * criterion2(pred, gt)
             loss /= args.batchsize
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
@@ -263,8 +273,7 @@ def train(model,
             if args.clustering:
                 curr_test = purity
             else:
-                #curr_test = auc
-                curr_test = purity
+                curr_test = auc
             #save the model with best auc
             if curr_test >= best_test:
                 torch.save(model.state_dict(),

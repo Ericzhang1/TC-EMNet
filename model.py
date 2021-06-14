@@ -17,21 +17,20 @@ class TC_EMNet(nn.Module):
             self.input_size = PPMI_FEATURE
             self.output_size = self.input_size if args.clustering else 6 #labels for PPMI dataset
         self.hidden_size = args.hidden_size
-        self.bidirectional = args.bidirectional
         self.num_layers = args.num_layers
         self.dropout = args.dropout
-        self.rnn_encoder = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, batch_first=True, dropout=self.dropout, bidirectional=self.bidirectional, num_layers=args.num_layers)
+        self.rnn_encoder = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, batch_first=True, dropout=0, bidirectional=False, num_layers=args.num_layers)
         if args.use_label:
             self.label_embed = args.label_embed
            
         self.out =  nn.Sequential(  nn.Dropout(p=args.dropout),
-                                    nn.Linear(in_features=self.hidden_size * 2 + self.label_embed, out_features=self.output_size))
+                                    nn.Linear(in_features=self.hidden_size * 2 , out_features=self.output_size))
         self.hidden_mean = nn.Sequential(
-            nn.Linear(in_features=self.hidden_size* (1 + self.bidirectional), out_features=self.hidden_size * (1 + self.bidirectional)),
+            nn.Linear(in_features=self.hidden_size, out_features=self.hidden_size),
             nn.Sigmoid()
         )
         self.hidden_std = nn.Sequential(
-            nn.Linear(in_features=self.hidden_size* (1 + self.bidirectional), out_features=self.hidden_size * (1 + self.bidirectional)),
+            nn.Linear(in_features=self.hidden_size, out_features=self.hidden_size),
             nn.ReLU()
         )
         self.memory_write = nn.Sequential(
@@ -51,7 +50,7 @@ class TC_EMNet(nn.Module):
                 nn.Linear(in_features=self.label_embed, out_features=self.label_embed),
                 nn.ReLU(),
             )
-              self.afm = nn.Sequential(
+            self.afm = nn.Sequential(
                 nn.Linear(in_features=self.label_embed, out_features=self.hidden_size),
                 nn.Sigmoid()
             )
@@ -119,12 +118,14 @@ class TC_EMNet(nn.Module):
         output, _ = self.rnn_encoder(input)
 
         memory_out = self.memory_network(output)
-        memory_target = self.memory_network_target(target)
+        if self.args.use_label:
+            memory_target = self.memory_network_target(target)
         for i in range(self.args.hop):
             memory_out = self.memory_network(memory_out)
-            memory_target = self.memory_network_target(memory_target)
-
-        memory_out = self._afm(memory_out, memory_target)
+            if self.args.use_label:
+                memory_target = self.memory_network_target(memory_target)
+        if self.args.use_label:
+            memory_out = self._afm(memory_out, memory_target)
         mean = self.hidden_mean(output)
         std = self.hidden_std(output)
 
