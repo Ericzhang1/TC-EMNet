@@ -19,3 +19,23 @@ Use the following command to install required dependencies:
 To run training, use the following command:
 
 `bash train.sh`
+
+## Results
+ADNI Dataset
+
+| Task      | Purity | NMI | RI |
+| ----------- | ----------- | ----------- | ----------- |
+| w/o label | 0.70 | 0.20 | 0.19 |
+| with label | 0.91 | 0.48 | 0.49 |
+
+PPMI Dataset
+| Task      | Purity | NMI | RI |
+| ----------- | ----------- | ----------- | ----------- |
+| w/o label | 0.75 | 0.38 | 0.37 |
+| with label | 0.83 | 0.50 | 0.50 |
+
+## Model Evaluation
+
+The pretrained model is saved in './model'. To run evaluation, use the following command:
+
+`bash eval.sh`
