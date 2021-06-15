@@ -159,14 +159,13 @@ def train(model,
                     gt = torch.tensor(np.where(gt.cpu()==1)[1])
                     gt = gt.to(device=device)
                     loss += criterion(pred, gt)
-          
-                for i, l in enumerate(batch['length']):
-                    mean_, std_ = mean[i, 0:l, :], std[i, 0:l, :]
-                    k_loss, kl_weight = kl_loss(mean_, std_, global_step)
-                    loss += k_loss * kl_weight
+            
+            for i, l in enumerate(batch['length']):
+                mean_, std_ = mean[i, 0:l, :], std[i, 0:l, :]
+                k_loss, kl_weight = kl_loss(mean_, std_, global_step)
+                loss += k_loss * kl_weight
 
-                    pred, gt = recon[i, 0:l, :], visit[i, 0:l, :]
-                    loss += args.alpha * criterion2(pred, gt)
+                
             loss /= args.batchsize
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
@@ -277,7 +276,7 @@ def train(model,
             #save the model with best auc
             if curr_test >= best_test:
                 torch.save(model.state_dict(),
-                        args.save_dir + f'/test_fold_{args.fold}_data{args.data_type}_{args.seed}.pth')
+                        args.save_dir + f'/test_fold{args.fold}_data{args.data_type}_{args.seed}.pth')
                 logger.info(f'test model saved !')
                 best_test = curr_test
                 
